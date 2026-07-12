@@ -12,6 +12,7 @@ class contains:
 class matches:
     def __init__(self, pattern: str):
         import re
+
         self.pattern = pattern
         self._re = re.compile(pattern)
 

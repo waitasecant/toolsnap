@@ -271,7 +271,7 @@ class SnapSession:
                 actual_kwargs = ", ".join(f"{k}={v!r}" for k, v in c["kwargs"].items())
                 raise AssertionError(
                     f'assert_called_with("{fn_name}", call={call}, '
-                    f'{", ".join(f"{k}={v!r}" for k, v in kwargs.items())}) failed\n\n'
+                    f"{', '.join(f'{k}={v!r}' for k, v in kwargs.items())}) failed\n\n"
                     f"  Call {call}: {actual_kwargs}"
                 )
         else:
@@ -287,8 +287,8 @@ class SnapSession:
             raise AssertionError(
                 f'assert_called_with("{fn_name}", {predicate_str}) failed\n\n'
                 f'  Actual calls to "{fn_name}":\n' + "\n".join(lines) + "\n\n"
-                f"  Expected: at least one call matching the predicate\n"
-                f"  Got: no matching call"
+                "  Expected: at least one call matching the predicate\n"
+                "  Got: no matching call"
             )
 
     def assert_call_order(self, fn_names: list[str]) -> None:
@@ -325,7 +325,7 @@ class SnapSession:
                     raise AssertionError(
                         f"assert_no_errors() failed\n\n"
                         f'  "{fn_name}" call {i} raised '
-                        f'{c["error"]["type"]}: {c["error"]["message"]}'
+                        f"{c['error']['type']}: {c['error']['message']}"
                     )
 
     def assert_raised(self, fn_name: str, error_type: str) -> None:
@@ -338,5 +338,5 @@ class SnapSession:
         raise AssertionError(
             f'assert_raised("{fn_name}", "{error_type}") failed\n\n'
             f"  Expected: at least one call raising {error_type}\n"
-            f'  Got errors: {actual_errors or "none"}'
+            f"  Got errors: {actual_errors or 'none'}"
         )
