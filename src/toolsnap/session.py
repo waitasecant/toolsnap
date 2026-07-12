@@ -3,11 +3,11 @@ import inspect
 from contextlib import contextmanager
 from typing import Any, TypeVar, cast
 
-_F = TypeVar("_F")
-
 from .models import CallRecord
 from .replayer import UnexpectedToolCall, _resolve_exception
 from .store import CallStore
+
+_F = TypeVar("_F")
 
 
 class _CallLog:
@@ -294,9 +294,6 @@ class SnapSession:
     def assert_call_order(self, fn_names: list[str]) -> None:
         """Assert the given function names were called in this order (not necessarily consecutive)."""
         timeline: list[str] = []
-        max_calls = max(
-            (len(self._logs[n].calls) for n in fn_names if n in self._logs), default=0
-        )
         # Build a flat timeline using call_index ordering stored in the log
         all_fns = list(self._logs.keys())
         events: list[tuple[int, str]] = []
