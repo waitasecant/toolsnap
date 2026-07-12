@@ -1,0 +1,1 @@
+{"call_index": 0, "fn": "calculator", "args": [], "kwargs": {"expression": "2+2", "mode": "evaluate", "precision": null, "scientific": null, "force_numeric": null, "variables": null, "wrt": null, "point": null, "order": null}, "result": {"status": "success", "content": [{"text": "Result: 4"}]}, "duration_ms": 8.013400016352534, "ts": 1783891332.7477918, "error": null}
