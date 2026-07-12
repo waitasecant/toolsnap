@@ -104,7 +104,6 @@ def replay_custom():
         """Evaluate a mathematical expression."""
         ...
 
-    agent = Agent(model=model, tools=[calculator])
     print(Agent(model=model, tools=[calculator])("What is 2+2?"))
 
 

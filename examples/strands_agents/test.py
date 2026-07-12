@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pytest tests for the recorded calculator fixture.
 
 toolsnap replays *tool calls*, not LLM decisions.  These tests verify:
