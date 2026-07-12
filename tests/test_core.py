@@ -1,3 +1,7 @@
+import json
+import warnings
+from pathlib import Path
+
 import pytest
 
 from toolsnap import UnexpectedToolCall, replay, snap
@@ -176,3 +180,91 @@ async def test_async_replay_recorded_exception(tmp_fixture):
 
     with pytest.raises(TypeError, match="async error"):
         await replayed_risky()
+
+
+# Store edge cases
+
+
+def test_store_load_nonexistent_file(tmp_fixture):
+    from toolsnap.store import CallStore
+
+    records = CallStore(tmp_fixture).load()
+    assert records == []
+
+
+def test_store_load_skips_blank_lines(tmp_fixture):
+    record = {
+        "call_index": 0,
+        "fn": "f",
+        "args": [],
+        "kwargs": {},
+        "result": 1,
+        "duration_ms": 0.0,
+        "ts": 0.0,
+        "error": None,
+    }
+    record2 = {**record, "call_index": 1, "result": 2}
+    Path(tmp_fixture).write_text(
+        json.dumps(record) + "\n\n" + json.dumps(record2) + "\n"
+    )
+
+    from toolsnap.store import CallStore
+
+    records = CallStore(tmp_fixture).load()
+    assert len(records) == 2
+    assert records[0].result == 1
+    assert records[1].result == 2
+
+
+def test_store_load_skips_corrupt_records(tmp_fixture):
+    good = json.dumps(
+        {
+            "call_index": 0,
+            "fn": "f",
+            "args": [],
+            "kwargs": {},
+            "result": 99,
+            "duration_ms": 0.0,
+            "ts": 0.0,
+            "error": None,
+        }
+    )
+    Path(tmp_fixture).write_text("not valid json\n" + good + "\n")
+
+    from toolsnap.store import CallStore
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        records = CallStore(tmp_fixture).load()
+
+    assert len(records) == 1
+    assert records[0].result == 99
+    messages = " ".join(str(w.message) for w in caught)
+    assert "corrupt" in messages
+
+
+# Replayer edge cases
+
+
+def test_resolve_exception_unknown_type():
+    from toolsnap.replayer import _resolve_exception
+
+    assert _resolve_exception("SomeCustomException") is RuntimeError
+
+
+@pytest.mark.asyncio
+async def test_async_replay_non_strict_falls_through(tmp_fixture):
+    @snap(tmp_fixture)
+    async def task(n):
+        return n * 2
+
+    await task(5)
+
+    async def _task_stub(n):
+        return n * 99  # real impl
+
+    _task_stub.__name__ = "task"
+    task = replay(tmp_fixture, strict=False)(_task_stub)
+
+    assert await task(0) == 10  # replayed: 5 * 2
+    assert await task(0) == 0  # fell through: 0 * 99
