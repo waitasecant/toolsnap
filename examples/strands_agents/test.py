@@ -9,16 +9,16 @@ Record once, then run tests freely:
     pytest test.py   # replays it, zero API calls
 """
 
-from toolsnap import replay
+from toolsnap import fixture_path, replay
 from toolsnap.store import CallStore
 
-from main import FIXTURE
+FIXTURE = fixture_path("get_current_time")  # fixtures/get_current_time.jsonl
 
 
 def test_recorded_time_is_utc_formatted():
     """Tool returns a timestamp in the expected 'YYYY-MM-DD HH:MM:SS UTC' format."""
 
-    @replay(FIXTURE)
+    @replay  # auto-reads from fixtures/get_current_time.jsonl
     def get_current_time() -> str:
         """Return the current UTC date and time."""
         ...
@@ -33,7 +33,7 @@ def test_replay_returns_exact_recorded_value():
     """Replayed tool returns the exact value that was captured during recording."""
     recorded = next(r for r in CallStore(FIXTURE).load() if r.fn == "get_current_time")
 
-    @replay(FIXTURE)
+    @replay  # auto-reads from fixtures/get_current_time.jsonl
     def get_current_time() -> str:
         """Return the current UTC date and time."""
         ...

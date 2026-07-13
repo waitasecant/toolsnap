@@ -3,15 +3,13 @@ Strands agent example — recording tool calls with @snap.
 
 Apply @snap inside the SDK decorator so toolsnap intercepts the call:
 
-```
-@tool                   # SDK wrapper — reads __signature__
-@snap("fixture.jsonl")  # toolsnap — intercepts the call
-def my_tool(...): ...
-```
+    @tool   # SDK wrapper reads __signature__
+    @snap   # toolsnap auto-saves to fixtures/{fn_name}.jsonl
+    def my_tool(...): ...
 
 Record once, then run tests freely:
     python main.py   # captures a real tool call
-    pytest test.py   # replays it on every test run
+    pytest test.py   # replays it, zero API calls
 """
 
 import os
@@ -21,8 +19,6 @@ from strands import tool
 from strands.models.gemini import GeminiModel
 
 from toolsnap import snap
-
-FIXTURE = "fixtures/current_time.jsonl"
 
 model = GeminiModel(
     client_args={
@@ -39,7 +35,7 @@ model = GeminiModel(
 
 
 @tool
-@snap(FIXTURE)
+@snap  # auto-saves to fixtures/get_current_time.jsonl
 def get_current_time() -> str:
     """Return the current UTC date and time."""
     from datetime import datetime, timezone
