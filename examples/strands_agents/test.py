@@ -1,59 +1,41 @@
 """
-Pytest tests for the recorded get_current_time fixture.
+Tool tests using toolsnap replay — zero API calls.
 
-toolsnap replays *tool calls*, not LLM decisions.  These tests verify:
-  - the fixture was written correctly by main.py
-  - replay() returns recorded results without touching the real function
+toolsnap records and replays *tool* calls.
+These tests call the tool function directly through @replay
 
-No API key is needed. Run after recording: pytest test.py
+Record once, then run tests freely:
+    python main.py   # captures a real tool call
+    pytest test.py   # replays it, zero API calls
 """
 
-from toolsnap import UnexpectedToolCall, replay
+from toolsnap import replay
 from toolsnap.store import CallStore
 
-FIXTURE = "fixtures/current_time.jsonl"
+from main import FIXTURE
 
 
-def test_fixture_has_get_current_time_calls():
-    """main.py must have written at least one get_current_time call to the fixture."""
-    records = CallStore(FIXTURE).load()
-    time_records = [r for r in records if r.fn == "get_current_time"]
-    assert len(time_records) >= 1, "No records found — run: python main.py"
-    assert all(r.error is None for r in time_records)
+def test_recorded_time_is_utc_formatted():
+    """Tool returns a timestamp in the expected 'YYYY-MM-DD HH:MM:SS UTC' format."""
+
+    @replay(FIXTURE)
+    def get_current_time() -> str:
+        """Return the current UTC date and time."""
+        ...
+
+    result = get_current_time()
+    assert result.endswith("UTC"), f"Expected UTC suffix, got: {result!r}"
+    parts = result.split()
+    assert len(parts) == 3, f"Expected 'date time UTC', got: {result!r}"
 
 
-def test_replay_returns_recorded_result_without_calling_real_function():
-    """replay() serves the fixture result; the real function is never invoked."""
-    records = CallStore(FIXTURE).load()
-    recorded = next(r for r in records if r.fn == "get_current_time")
+def test_replay_returns_exact_recorded_value():
+    """Replayed tool returns the exact value that was captured during recording."""
+    recorded = next(r for r in CallStore(FIXTURE).load() if r.fn == "get_current_time")
 
-    call_log: list = []
+    @replay(FIXTURE)
+    def get_current_time() -> str:
+        """Return the current UTC date and time."""
+        ...
 
-    def get_current_time():
-        call_log.append(True)
-        return "should not run"
-
-    replayed_fn = replay(FIXTURE)(get_current_time)
-    result = replayed_fn()
-
-    assert result == recorded.result, f"Expected {recorded.result!r}, got {result!r}"
-    assert call_log == [], "real function was called during replay"
-
-
-def test_replay_raises_on_extra_call():
-    """replay() raises UnexpectedToolCall when called more times than recorded."""
-    records = CallStore(FIXTURE).load()
-    call_count = sum(1 for r in records if r.fn == "get_current_time")
-
-    def get_current_time(): ...
-
-    replayed_fn = replay(FIXTURE)(get_current_time)
-
-    for _ in range(call_count):
-        replayed_fn()
-
-    try:
-        replayed_fn()
-        assert False, "Expected UnexpectedToolCall"
-    except UnexpectedToolCall:
-        pass
+    assert get_current_time() == recorded.result

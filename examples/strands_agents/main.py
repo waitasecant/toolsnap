@@ -9,9 +9,9 @@ Apply @snap inside the SDK decorator so toolsnap intercepts the call:
 def my_tool(...): ...
 ```
 
-Record once against the real API: python main.py
-
-Then run the tests (no API key needed): pytest test.py
+Record once, then run tests freely:
+    python main.py   # captures a real tool call
+    pytest test.py   # replays it on every test run
 """
 
 import os
