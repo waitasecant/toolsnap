@@ -1,6 +1,6 @@
 [project]
 name = "toolsnap"
-version = "0.1.0"
+version = "0.1.1"
 description = "Record and replay LLM agent tool calls for deterministic testing"
 authors = [
     {name = "Himanshu",email = "waitasecant@gmail.com"}
