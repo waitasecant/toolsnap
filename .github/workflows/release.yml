@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write  # create GitHub release
+  id-token: write  # PyPI trusted publishing (OIDC)
+
+jobs:
+  # Gate: full test matrix must pass before anything is published
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package + test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]" pytest pytest-asyncio pytest-cov
+
+      - name: Run tests
+        run: python -m pytest tests -q
+
+  # Build: produce wheel + sdist
+  build:
+    name: Build distribution
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for changelog generation
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: false
+
+      - name: Build wheel and sdist
+        run: poetry build
+
+      - name: Store distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # GitHub Release: changelog + assets
+  github-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Auto-generate changelog from PRs and commits since last tag.
+          # Replace with a body_path pointing to CHANGELOG.md section once
+          # you maintain one manually.
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          # GitHub adds Source code (zip) and Source code (tar.gz) automatically.
+
+  # PyPI publish
+  pypi-publish:
+    name: Publish to PyPI
+    needs: github-release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/toolsnap/
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Uses OIDC trusted publishing — no API token secret needed.
+        # Set up once at pypi.org → Manage project → Publishing → Add publisher:
+        #   owner: <your-github-username>
+        #   repository: toolsnap
+        #   workflow: release.yml
+        #   environment: pypi
+        #
+        # If you prefer a token instead, remove id-token: write above and use:
+        #   with:
+        #     password: ${{ secrets.PYPI_TOKEN }}
