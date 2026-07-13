@@ -22,14 +22,15 @@ def snap(path: str, *, serializer=None, deserializer=None) -> Callable[[_F], _F]
 
     def decorator(fn: _F) -> _F:
         store = CallStore(path)
-        call_counts: dict[str, int] = {}
+        call_count = 0
 
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args, **kwargs):
-                idx = call_counts.get(fn.__name__, 0)
-                call_counts[fn.__name__] = idx + 1
+                nonlocal call_count
+                idx = call_count
+                call_count += 1
                 t0 = time.perf_counter()
                 error = None
                 result = None
@@ -63,8 +64,9 @@ def snap(path: str, *, serializer=None, deserializer=None) -> Callable[[_F], _F]
 
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            idx = call_counts.get(fn.__name__, 0)
-            call_counts[fn.__name__] = idx + 1
+            nonlocal call_count
+            idx = call_count
+            call_count += 1
             t0 = time.perf_counter()
             error = None
             result = None

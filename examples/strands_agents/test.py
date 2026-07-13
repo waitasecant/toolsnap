@@ -1,44 +1,40 @@
 """
-Pytest tests for the recorded calculator fixture.
+Pytest tests for the recorded get_current_time fixture.
 
 toolsnap replays *tool calls*, not LLM decisions.  These tests verify:
-  - the fixture was written correctly by record()
+  - the fixture was written correctly by main.py
   - replay() returns recorded results without touching the real function
 
-No API key is needed.  Run after recording:
-    python strands_agent.py record
-    pytest test_strands_agent.py
+No API key is needed. Run after recording: pytest test.py
 """
 
 from toolsnap import UnexpectedToolCall, replay
 from toolsnap.store import CallStore
 
-FIXTURE = "fixtures/calculator_calls.jsonl"
+FIXTURE = "fixtures/current_time.jsonl"
 
 
-def test_fixture_has_calculator_calls():
-    """record() must have written at least one calculator call to the fixture."""
+def test_fixture_has_get_current_time_calls():
+    """main.py must have written at least one get_current_time call to the fixture."""
     records = CallStore(FIXTURE).load()
-    calc_records = [r for r in records if r.fn == "calculator"]
-    assert len(calc_records) >= 1, (
-        "No calculator records found - run: python strands_agent.py record"
-    )
-    assert all(r.error is None for r in calc_records)
+    time_records = [r for r in records if r.fn == "get_current_time"]
+    assert len(time_records) >= 1, "No records found — run: python main.py"
+    assert all(r.error is None for r in time_records)
 
 
 def test_replay_returns_recorded_result_without_calling_real_function():
     """replay() serves the fixture result; the real function is never invoked."""
     records = CallStore(FIXTURE).load()
-    recorded = next(r for r in records if r.fn == "calculator")
+    recorded = next(r for r in records if r.fn == "get_current_time")
 
     call_log: list = []
 
-    def calculator(**kwargs):
-        call_log.append(kwargs)
+    def get_current_time():
+        call_log.append(True)
         return "should not run"
 
-    replayed_fn = replay(FIXTURE)(calculator)
-    result = replayed_fn(**recorded.kwargs)
+    replayed_fn = replay(FIXTURE)(get_current_time)
+    result = replayed_fn()
 
     assert result == recorded.result, f"Expected {recorded.result!r}, got {result!r}"
     assert call_log == [], "real function was called during replay"
@@ -47,18 +43,17 @@ def test_replay_returns_recorded_result_without_calling_real_function():
 def test_replay_raises_on_extra_call():
     """replay() raises UnexpectedToolCall when called more times than recorded."""
     records = CallStore(FIXTURE).load()
-    call_count = sum(1 for r in records if r.fn == "calculator")
-    first_record = next(r for r in records if r.fn == "calculator")
+    call_count = sum(1 for r in records if r.fn == "get_current_time")
 
-    def calculator(**kwargs): ...
+    def get_current_time(): ...
 
-    replayed_fn = replay(FIXTURE)(calculator)
+    replayed_fn = replay(FIXTURE)(get_current_time)
 
     for _ in range(call_count):
-        replayed_fn(**first_record.kwargs)
+        replayed_fn()
 
     try:
-        replayed_fn(**first_record.kwargs)
+        replayed_fn()
         assert False, "Expected UnexpectedToolCall"
     except UnexpectedToolCall:
         pass

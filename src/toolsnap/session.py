@@ -1,7 +1,7 @@
 import functools
 import inspect
 from contextlib import contextmanager
-from typing import Any, TypeVar, cast
+from typing import TypeVar, cast
 
 from .models import CallRecord
 from .replayer import UnexpectedToolCall, _resolve_exception
@@ -47,26 +47,19 @@ class SnapSession:
         self._store = CallStore(path)
         self._index: dict[str, list[CallRecord]] = {}
         self._logs: dict[str, _CallLog] = {}
-        self._originals: dict[str, Any] = {}  # unused in this impl; wrap returns new fn
 
     @classmethod
     @contextmanager
     def snap(cls, path: str, *, strict: bool = True):
         session = cls(path, mode="snap", strict=strict)
-        try:
-            yield session
-        finally:
-            pass
+        yield session
 
     @classmethod
     @contextmanager
     def replay(cls, path: str, *, strict: bool = True):
         session = cls(path, mode="replay", strict=strict)
         session._index = session._store.load_index()
-        try:
-            yield session
-        finally:
-            pass
+        yield session
 
     def wrap(self, fn: _F) -> _F:
         """
@@ -98,18 +91,16 @@ class SnapSession:
 
             @functools.wraps(fn)
             async def async_wrapper(*args, **kwargs):
-                import time as _time
-
                 error = None
                 result = None
-                t0 = _time.perf_counter()
+                t0 = time.perf_counter()
                 try:
                     result = await fn(*args, **kwargs)
                 except Exception as e:
                     error = {"type": type(e).__name__, "message": str(e)}
                     raise
                 finally:
-                    duration_ms = (_time.perf_counter() - t0) * 1000
+                    duration_ms = (time.perf_counter() - t0) * 1000
                     idx = len(log.calls)
                     log.record(list(args), kwargs, result, error)
                     self._store.append(
@@ -120,7 +111,7 @@ class SnapSession:
                             kwargs=kwargs,
                             result=result,
                             duration_ms=duration_ms,
-                            ts=_time.time(),
+                            ts=time.time(),
                             error=error,
                         )
                     )

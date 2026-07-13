@@ -35,14 +35,15 @@ def replay(path: str, *, strict: bool = True) -> Callable[[_F], _F]:
 
         store = CallStore(path)
         index = store.load_index()
-        call_counts: dict[str, int] = {}
+        call_count = 0
 
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args, **kwargs):
-                idx = call_counts.get(fn.__name__, 0)
-                call_counts[fn.__name__] = idx + 1
+                nonlocal call_count
+                idx = call_count
+                call_count += 1
                 records = index.get(fn.__name__, [])
                 if idx >= len(records):
                     if strict:
@@ -61,8 +62,9 @@ def replay(path: str, *, strict: bool = True) -> Callable[[_F], _F]:
 
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            idx = call_counts.get(fn.__name__, 0)
-            call_counts[fn.__name__] = idx + 1
+            nonlocal call_count
+            idx = call_count
+            call_count += 1
             records = index.get(fn.__name__, [])
             if idx >= len(records):
                 if strict:
