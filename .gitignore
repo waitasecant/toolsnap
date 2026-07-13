@@ -4,6 +4,7 @@ venv/
 *.pyc
 .vscode/
 .pytest_cache/
+.ruff_cache/
 docs/
 dist/
 *coverage*
