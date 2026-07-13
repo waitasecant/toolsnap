@@ -1,5 +1,5 @@
 # toolsnap
-[![PyPI Version](https://img.shields.io/pypi/v/toolsnap?logo=pypi&logoColor=white&label=PyPI&color=neongreen)](https://pypi.org/project/toolsnap/)
+[![PyPI Version](https://img.shields.io/pypi/v/toolsnap?pypiBaseUrl=https%3A%2F%2Fpypi.org&logo=pypi&logoColor=white&label=PyPI&color=neongreen)](https://pypi.org/project/toolsnap/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/waitasecant/toolsnap/test.yml?logo=github&label=Tests)](https://github.com/waitasecant/toolsnap/actions/workflows/test.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/waitasecant/toolsnap?logo=codecov&label=Coverage&color=neongreen)](https://codecov.io/gh/waitasecant/toolsnap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-neon.svg)](LICENSE)
