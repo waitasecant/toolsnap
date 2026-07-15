@@ -32,6 +32,9 @@ test = [
     "pre-commit (>=4.6.0,<5.0.0)"
 ]
 
+[project.scripts]
+toolsnap = "toolsnap.cli:main"
+
 [project.urls]
 Changelog = "https://github.com/waitasecant/toolsnap/releases/latest"
 Repository = "https://github.com/waitasecant/toolsnap"
