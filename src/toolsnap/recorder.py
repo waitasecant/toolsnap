@@ -107,6 +107,7 @@ def _build_recorder(fn: _F, path: str, serializer, overwrite: bool) -> _F:
                 )
             return result
 
+        async_wrapper._is_snap_wrapped = True  # type: ignore[attr-defined]
         return async_wrapper  # type: ignore[return-value]
 
     @functools.wraps(fn)
@@ -144,4 +145,5 @@ def _build_recorder(fn: _F, path: str, serializer, overwrite: bool) -> _F:
             )
         return result
 
+    wrapper._is_snap_wrapped = True  # type: ignore[attr-defined]
     return wrapper  # type: ignore[return-value]

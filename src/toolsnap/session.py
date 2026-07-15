@@ -1,5 +1,6 @@
 import functools
 import inspect
+import warnings
 from contextlib import contextmanager
 from typing import TypeVar, cast
 
@@ -67,8 +68,16 @@ class SnapSession:
         reassign or pass this to the agent. Also patches the function in its own
         module namespace so existing references pick up the wrap automatically.
         """
-        log = _CallLog(fn.__name__)  # type: ignore[union-attr]
-        self._logs[fn.__name__] = log  # type: ignore[union-attr]
+        fn_name = getattr(fn, "__name__", repr(fn))
+        if getattr(fn, "_is_snap_wrapped", False):
+            warnings.warn(
+                f"{fn_name!r} is already decorated with @snap. "
+                "Wrapping it in a SnapSession will double-record in snap mode. "
+                "Remove @snap from the function definition when using SnapSession.",
+                stacklevel=2,
+            )
+        log = _CallLog(fn_name)
+        self._logs[fn_name] = log
 
         if self._mode == "snap":
             wrapped = self._make_snap_wrapper(fn, log)
@@ -80,7 +89,7 @@ class SnapSession:
         # name gets the wrapped version.
         module = inspect.getmodule(fn)
         if module is not None:
-            setattr(module, fn.__name__, wrapped)  # type: ignore[union-attr]
+            setattr(module, fn_name, wrapped)
 
         return cast(_F, wrapped)
 
