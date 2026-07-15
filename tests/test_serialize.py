@@ -201,3 +201,20 @@ def test_result_within_limit_stored_as_is(tmp_fixture):
 
     records = CallStore(tmp_fixture).load()
     assert records[0].result == "hello"
+
+
+def test_max_result_bytes_zero_disables_limit(tmp_fixture):
+    # max_result_bytes=0 should mean "no limit" — large results are stored as-is.
+    big = "x" * 10_000
+
+    @snap(tmp_fixture, max_result_bytes=0)
+    def get_big() -> str:
+        return big
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        get_big()
+
+    assert not any("truncat" in str(w.message).lower() for w in caught)
+    records = CallStore(tmp_fixture).load()
+    assert records[0].result == big

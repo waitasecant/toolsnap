@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from toolsnap import UnexpectedToolCall, replay, snap
@@ -177,3 +179,43 @@ async def test_async_replay_non_strict_falls_through(tmp_fixture):
 
     assert await task(0) == 10  # replayed: 5 * 2
     assert await task(0) == 0  # fell through: 0 * 99
+
+
+def test_concurrent_replay_thread_safe(tmp_fixture):
+    # Record 10 calls with distinct results.
+    @snap(tmp_fixture, overwrite=False)
+    def work(n: int) -> int:
+        return n * 3
+
+    for i in range(10):
+        work(i)
+
+    def _stub(n: int) -> int:
+        raise RuntimeError("real function should not be called during replay")
+
+    _stub.__name__ = "work"
+    replayed = replay(tmp_fixture, strict=True)(_stub)
+
+    results: list[int] = []
+    errors: list[Exception] = []
+    lock = threading.Lock()
+
+    def call_replayed(n: int) -> None:
+        try:
+            r = replayed(n)
+            with lock:
+                results.append(r)
+        except Exception as exc:  # noqa: BLE001
+            with lock:
+                errors.append(exc)
+
+    threads = [threading.Thread(target=call_replayed, args=(i,)) for i in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == [], f"unexpected errors during concurrent replay: {errors}"
+    assert len(results) == 10
+    # Each replayed call returns n*3; the set of results must match what was recorded.
+    assert sorted(results) == [i * 3 for i in range(10)]

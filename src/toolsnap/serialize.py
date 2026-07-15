@@ -30,7 +30,7 @@ def auto_serialize(result: Any, max_result_bytes: int) -> Any:
             encoded = json.dumps(candidate).encode()
         except (TypeError, ValueError):
             return None  # not serializable even after conversion
-        if len(encoded) <= max_result_bytes:
+        if max_result_bytes == 0 or len(encoded) <= max_result_bytes:
             return candidate
         digest = hashlib.sha256(encoded).hexdigest()[:16]
         warnings.warn(

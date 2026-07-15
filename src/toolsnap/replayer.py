@@ -1,5 +1,6 @@
 import functools
 import inspect
+import threading
 from typing import Any, Callable, TypeVar, overload
 
 from .store import CallStore, _resolve_path
@@ -59,14 +60,16 @@ def replay(path_or_fn=None, *, strict: bool = True):
 def _build_replayer(fn: _F, path: str, strict: bool) -> _F:
     index = CallStore(path).load_index()
     call_count = 0
+    _count_lock = threading.Lock()
 
     if inspect.iscoroutinefunction(fn):
 
         @functools.wraps(fn)
         async def async_wrapper(*args, **kwargs):
             nonlocal call_count
-            idx = call_count
-            call_count += 1
+            with _count_lock:
+                idx = call_count
+                call_count += 1
             records = index.get(fn.__name__, [])
             if idx >= len(records):
                 if strict:
@@ -86,8 +89,9 @@ def _build_replayer(fn: _F, path: str, strict: bool) -> _F:
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         nonlocal call_count
-        idx = call_count
-        call_count += 1
+        with _count_lock:
+            idx = call_count
+            call_count += 1
         records = index.get(fn.__name__, [])
         if idx >= len(records):
             if strict:
