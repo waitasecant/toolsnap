@@ -2,8 +2,6 @@ import json
 import warnings
 from pathlib import Path
 
-import pytest
-
 from toolsnap import snap
 from toolsnap.store import CallStore, _resolve_path, fixture_path
 
