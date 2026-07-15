@@ -43,7 +43,7 @@ def get_current_time() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-agent = Agent(model=model, tools=[get_current_time])
+agent = Agent(name="Strands Example Agent", model=model, tools=[get_current_time])
 
 
 def record():
