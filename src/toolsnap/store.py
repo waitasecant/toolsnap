@@ -38,6 +38,10 @@ class CallStore:
     def __init__(self, path: str | Path):
         self.path = Path(path)
 
+    def clear(self) -> None:
+        if self.path.exists():
+            self.path.write_text("", encoding="utf-8")
+
     def append(self, record: CallRecord) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(

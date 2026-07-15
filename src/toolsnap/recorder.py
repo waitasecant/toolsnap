@@ -8,16 +8,31 @@ from .store import CallStore, _resolve_path
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
+# Tracks fixture paths already overwritten in this process run.
+# Ensures each path is truncated at most once, even when multiple
+# decorated functions share the same fixture file.
+_overwritten_paths: set[str] = set()
+
 
 @overload
-def snap(path_or_fn: _F, *, serializer: Any = ..., deserializer: Any = ...) -> _F: ...
+def snap(
+    path_or_fn: _F,
+    *,
+    serializer: Any = ...,
+    deserializer: Any = ...,
+    overwrite: bool = ...,
+) -> _F: ...
 @overload
 def snap(
-    path_or_fn: str | None = ..., *, serializer: Any = ..., deserializer: Any = ...
+    path_or_fn: str | None = ...,
+    *,
+    serializer: Any = ...,
+    deserializer: Any = ...,
+    overwrite: bool = ...,
 ) -> Callable[[_F], _F]: ...
 
 
-def snap(path_or_fn=None, *, serializer=None, deserializer=None):
+def snap(path_or_fn=None, *, serializer=None, deserializer=None, overwrite=True):
     """
     Decorator that records every call to the wrapped function into a JSONL fixture file.
 
@@ -32,21 +47,26 @@ def snap(path_or_fn=None, *, serializer=None, deserializer=None):
         path_or_fn: Optional path string, or the decorated function when used bare.
         serializer: Optional callable to convert a non-serializable result before storing.
         deserializer: Unused in recording mode; kept for API symmetry with @replay.
+        overwrite: If True (default), the fixture file is cleared on the first call of
+            each process run so re-running the script always produces a fresh fixture.
+            Set to False to accumulate calls across multiple runs.
     """
     if callable(path_or_fn):
         # @snap used bare without parentheses
         return _build_recorder(
-            path_or_fn, _resolve_path(None, path_or_fn.__name__), serializer
+            path_or_fn, _resolve_path(None, path_or_fn.__name__), serializer, overwrite
         )
 
     # @snap(), @snap("dir/"), or @snap("file.jsonl")
     def decorator(fn: _F) -> _F:
-        return _build_recorder(fn, _resolve_path(path_or_fn, fn.__name__), serializer)
+        return _build_recorder(
+            fn, _resolve_path(path_or_fn, fn.__name__), serializer, overwrite
+        )
 
     return decorator
 
 
-def _build_recorder(fn: _F, path: str, serializer) -> _F:
+def _build_recorder(fn: _F, path: str, serializer, overwrite: bool) -> _F:
     store = CallStore(path)
     call_count = 0
 
@@ -70,6 +90,9 @@ def _build_recorder(fn: _F, path: str, serializer) -> _F:
                 stored_result = (
                     serializer(result) if serializer and result is not None else result
                 )
+                if overwrite and path not in _overwritten_paths:
+                    store.clear()
+                    _overwritten_paths.add(path)
                 store.append(
                     CallRecord(
                         call_index=idx,
@@ -104,6 +127,9 @@ def _build_recorder(fn: _F, path: str, serializer) -> _F:
             stored_result = (
                 serializer(result) if serializer and result is not None else result
             )
+            if overwrite and path not in _overwritten_paths:
+                store.clear()
+                _overwritten_paths.add(path)
             store.append(
                 CallRecord(
                     call_index=idx,
