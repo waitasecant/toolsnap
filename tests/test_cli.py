@@ -1,7 +1,5 @@
 import json
-from pathlib import Path
 
-import pytest
 
 from toolsnap.cli import main
 from toolsnap.models import CallRecord
@@ -99,7 +97,7 @@ def test_show_truncates_long_result(tmp_path, capsys):
 
     out = capsys.readouterr().out
     # Result line must be capped (≤ ~220 chars for the result= line)
-    result_line = next(l for l in out.splitlines() if "result =" in l)
+    result_line = next(line for line in out.splitlines() if "result =" in line)
     assert len(result_line) <= 220
     assert "..." in result_line
 
