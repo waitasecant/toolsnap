@@ -1,10 +1,14 @@
 import json
+import threading
 import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Union
 
 from .models import CallRecord
+
+# Per-path locks so concurrent threads writing to the same fixture don't interleave.
+_append_locks: dict[str, threading.Lock] = {}
 
 
 def fixture_path(fn: Union[str, "Callable"], directory: str = "fixtures") -> str:
@@ -56,8 +60,12 @@ class CallStore:
                 "error": record.error,
             }
         )
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        key = str(self.path.resolve())
+        if key not in _append_locks:
+            _append_locks[key] = threading.Lock()
+        with _append_locks[key]:
+            with self.path.open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
 
     def load(self) -> list[CallRecord]:
         if not self.path.exists():
@@ -84,6 +92,24 @@ class CallStore:
                 stacklevel=2,
             )
         return records
+
+    def repair(self) -> int:
+        """Rewrite the fixture discarding corrupt lines.
+
+        Returns:
+            Number of lines removed.
+        """
+        if not self.path.exists():
+            return 0
+        with self.path.open(encoding="utf-8") as f:
+            original_count = sum(1 for line in f if line.strip())
+        records = self.load()  # load() already skips corrupt lines silently
+        removed = original_count - len(records)
+        if removed > 0:
+            self.clear()
+            for record in records:
+                self.append(record)
+        return removed
 
     def load_index(self) -> dict[str, list[CallRecord]]:
         index: dict[str, list[CallRecord]] = {}

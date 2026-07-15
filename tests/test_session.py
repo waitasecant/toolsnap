@@ -1,6 +1,17 @@
+import warnings
+
 import pytest
 
-from toolsnap import SnapSession, UnexpectedToolCall, any_of, contains, gt, lt, matches
+from toolsnap import (
+    SnapSession,
+    UnexpectedToolCall,
+    any_of,
+    contains,
+    gt,
+    lt,
+    matches,
+    snap,
+)
 
 
 def test_session_snap_and_assert_called(tmp_path):
@@ -551,3 +562,19 @@ def test_session_replay_sync_strict_over_call(tmp_path):
         search(q="x")  # replayed
         with pytest.raises(UnexpectedToolCall):
             search(q="x")  # over-call → strict=True raises
+
+
+def test_wrap_warns_when_fn_is_snap_decorated(tmp_path):
+    """wrap() emits a UserWarning when the function is already @snap-decorated."""
+    fixture = str(tmp_path / "s.jsonl")
+
+    @snap(fixture)
+    def my_tool():
+        return "real"
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with SnapSession.snap(fixture) as s:
+            s.wrap(my_tool)
+
+    assert any("@snap" in str(w.message) for w in caught)

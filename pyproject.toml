@@ -35,3 +35,9 @@ test = [
 [project.urls]
 Changelog = "https://github.com/waitasecant/toolsnap/releases/latest"
 Repository = "https://github.com/waitasecant/toolsnap"
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+omit = ["tests/*"]
