@@ -5,7 +5,6 @@ toolsnap is applied in main.py (recording) and tests (replay).
 This file contains only the tool and agent that would exist in production.
 """
 
-import os
 from datetime import datetime, timezone
 
 from langchain.agents import create_agent

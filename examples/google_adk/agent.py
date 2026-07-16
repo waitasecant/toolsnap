@@ -8,7 +8,6 @@ Note: ADK tools are plain Python functions — no SDK decorator is needed.
 """
 
 import asyncio
-import os
 from datetime import datetime, timezone
 
 from google.adk import Agent
