@@ -32,9 +32,6 @@ def _write_fixture(path, *records):
     )
 
 
-_CONFTEST = 'pytest_plugins = ["toolsnap.pytest_plugin"]'
-
-
 # unit: _find_fn_in_modules
 def test_find_fn_returns_unique_callable():
     from toolsnap.pytest_plugin import _find_fn_in_modules
@@ -195,6 +192,10 @@ def test_no_stale_warning_for_var_kwargs_function(tmp_path):
 
 
 # integration: 5 agent tests via pytester
+
+_CONFTEST = 'pytest_plugins = ["toolsnap.pytest_plugin"]'
+
+
 def test_plugin_replay_mode_passes(pytester):
     """Agent test 1: toolsnap_session in replay mode returns recorded results."""
     _write_fixture(

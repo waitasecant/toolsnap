@@ -1,51 +1,39 @@
 """
-LangChain agent example — recording tool calls with @snap.
+Record the agent's tool-call trajectory.
 
-Apply @snap inside the SDK decorator so toolsnap intercepts the call:
+    python main.py
 
-    @tool   # SDK wrapper reads __signature__
-    @snap   # toolsnap auto-saves to fixtures/{fn_name}.jsonl
-    def my_tool(...): ...
+Wraps every tool with SnapSession before the agent runs so that each call —
+function name, arguments, return value, duration — is saved to a single fixture.
 
-Record once, then run tests freely:
-    python main.py   # captures a real tool call
-    pytest test.py   # replays it, zero API calls
+    fixtures/session.jsonl   ← written here, read by both test files
+
+Re-run whenever you change the agent prompt, tools, or model.
+The LLM call is live (requires GEMINI_API_KEY); only the tool backends are
+captured and will be free to replay in tests.
 """
 
-from langchain.tools import tool
-from langchain.agents import create_agent
-from langchain_google_genai import ChatGoogleGenerativeAI
+import os
 
-from toolsnap import snap
+from toolsnap import SnapSession
 
-model = ChatGoogleGenerativeAI(
-    model="gemini-3-flash-preview",
-    temperature=1.0,
-)
+from agent import get_current_time, make_agent
+
+FIXTURE = "fixtures/session.jsonl"
 
 
-@tool
-@snap  # auto-saves to fixtures/get_current_time.jsonl
-def get_current_time() -> str:
-    """Return the current UTC date and time."""
-    from datetime import datetime, timezone
+def main() -> None:
+    if not os.getenv("GEMINI_API_KEY"):
+        raise SystemExit("GEMINI_API_KEY is not set")
 
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    with SnapSession.snap(FIXTURE) as s:
+        wrapped = s.wrap(get_current_time)
+        agent = make_agent(tools=[wrapped])
+        response = agent("What is the current time?")
 
-
-agent = create_agent(
-    model=model,
-    tools=[get_current_time],
-)
-
-
-def record():
-    """Run the agent once against the real API and capture tool calls."""
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": "What is the current time?"}]}
-    )
-    print(result["messages"][-1].content)
+    print(response)
+    print(f"\nTrajectory saved to {FIXTURE}")
 
 
 if __name__ == "__main__":
-    record()
+    main()
