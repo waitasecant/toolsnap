@@ -35,9 +35,6 @@ test = [
 [project.scripts]
 toolsnap = "toolsnap.cli:main"
 
-[project.entry-points."pytest11"]
-toolsnap = "toolsnap.pytest_plugin"
-
 [project.urls]
 Changelog = "https://github.com/waitasecant/toolsnap/releases/latest"
 Repository = "https://github.com/waitasecant/toolsnap"
