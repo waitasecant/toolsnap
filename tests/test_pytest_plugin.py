@@ -32,9 +32,6 @@ def _write_fixture(path, *records):
     )
 
 
-_CONFTEST = 'pytest_plugins = ["toolsnap.pytest_plugin"]'
-
-
 # unit: _find_fn_in_modules
 def test_find_fn_returns_unique_callable():
     from toolsnap.pytest_plugin import _find_fn_in_modules
@@ -202,7 +199,6 @@ def test_plugin_replay_mode_passes(pytester):
         _base_record("search", 0, kwargs={"q": "llm"}, result=["doc1", "doc2"]),
         _base_record("search", 1, kwargs={"q": "agents"}, result=["doc3"]),
     )
-    pytester.makeconftest(_CONFTEST)
     pytester.makepyfile("""
         import pytest
 
@@ -223,7 +219,6 @@ def test_plugin_replay_mode_passes(pytester):
 
 def test_plugin_record_mode_writes_fixture(pytester):
     """Agent test 2: --toolsnap-record writes a fresh fixture file."""
-    pytester.makeconftest(_CONFTEST)
     pytester.makepyfile("""
         import pytest
 
@@ -253,7 +248,6 @@ def test_plugin_strict_mode_raises_on_extra_call(pytester):
         pytester.path / "fixtures" / "summarize.jsonl",
         _base_record("summarize", 0, kwargs={"text": "hello"}, result="summary"),
     )
-    pytester.makeconftest(_CONFTEST)
     pytester.makepyfile("""
         import pytest
 
@@ -278,7 +272,6 @@ def test_plugin_non_strict_falls_through(pytester):
         pytester.path / "fixtures" / "lookup.jsonl",
         _base_record("lookup", 0, kwargs={"key": "a"}, result="recorded-value"),
     )
-    pytester.makeconftest(_CONFTEST)
     pytester.makepyfile("""
         import pytest
 
@@ -305,7 +298,6 @@ def test_plugin_assert_helpers_in_replay(pytester):
         _base_record("search", 1, kwargs={"q": "agents"}, result=["doc2"]),
         _base_record("get_weather", 0, kwargs={"city": "paris"}, result={"temp": 18}),
     )
-    pytester.makeconftest(_CONFTEST)
     pytester.makepyfile("""
         import pytest
 
