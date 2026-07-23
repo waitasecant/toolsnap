@@ -11,6 +11,21 @@ from .store import CallStore
 _F = TypeVar("_F")
 
 
+# SDK inner-callable lookup.
+# Strands: DecoratedFunctionTool._tool_func
+# LangChain: StructuredTool.func  (.args_schema guard avoids functools.partial)
+# Add new SDKs in _inner_callable_attr() below.
+def _inner_callable_attr(fn: object) -> str | None:
+    """Return the attribute holding the inner callable for SDK tool objects, or None."""
+    if inspect.isfunction(fn) or inspect.isbuiltin(fn):
+        return None
+    if callable(getattr(fn, "_tool_func", None)):  # Strands
+        return "_tool_func"
+    if callable(getattr(fn, "func", None)) and hasattr(fn, "args_schema"):  # LangChain
+        return "func"
+    return None
+
+
 class _CallLog:
     """Accumulated call log for a single wrapped function during a session."""
 
@@ -64,9 +79,9 @@ class SnapSession:
 
     def wrap(self, fn: _F) -> _F:
         """
-        Wrap a function for this session. Returns a new callable; the caller must
-        reassign or pass this to the agent. Also patches the function in its own
-        module namespace so existing references pick up the wrap automatically.
+        Wrap *fn* for this session. For plain functions, returns a new callable and
+        patches the module namespace. For SDK tool objects (Strands, LangChain), patches
+        the inner callable in-place and returns the original object unchanged.
         """
         fn_name = getattr(fn, "__name__", repr(fn))
         if getattr(fn, "_is_snap_wrapped", False):
@@ -79,18 +94,27 @@ class SnapSession:
         log = _CallLog(fn_name)
         self._logs[fn_name] = log
 
+        # SDK tool object: patch inner callable, return the object itself unchanged.
+        attr = _inner_callable_attr(fn)
+        if attr is not None:
+            inner_fn = getattr(fn, attr)
+            if self._mode == "snap":
+                wrapped_inner = self._make_snap_wrapper(inner_fn, log)
+            else:
+                call_counts: dict[str, int] = {}
+                wrapped_inner = self._make_replay_wrapper(inner_fn, log, call_counts)
+            setattr(fn, attr, wrapped_inner)
+            return cast(_F, fn)
+
+        # Plain function: return a new wrapper and patch the module namespace.
         if self._mode == "snap":
             wrapped = self._make_snap_wrapper(fn, log)
         else:
-            call_counts: dict[str, int] = {}
+            call_counts = {}
             wrapped = self._make_replay_wrapper(fn, log, call_counts)
-
-        # Patch the function in its own module so agent code using the original
-        # name gets the wrapped version.
         module = inspect.getmodule(fn)
         if module is not None:
             setattr(module, fn_name, wrapped)
-
         return cast(_F, wrapped)
 
     def _make_snap_wrapper(self, fn, log: _CallLog):
