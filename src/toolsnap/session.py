@@ -68,6 +68,7 @@ class SnapSession:
     @contextmanager
     def snap(cls, path: str, *, strict: bool = True):
         session = cls(path, mode="snap", strict=strict)
+        session._store.clear()  # fresh fixture on every snap run
         yield session
 
     @classmethod

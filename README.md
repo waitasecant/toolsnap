@@ -61,20 +61,19 @@ pip install toolsnap
 
 ```python
 # main.py — run once against live APIs
-from toolsnap import snap
+from toolsnap import SnapSession
 
-# auto-saves to fixtures/search.jsonl
-@snap
 def search(query: str) -> list[str]:
     return real_search_api(query)
 
-# auto-saves to fixtures/get_weather.jsonl
-@snap
 def get_weather(city: str) -> dict:
     return real_weather_api(city)
 
-agent.run("what's the weather in london and find llm docs")
-# fixtures/search.jsonl and fixtures/get_weather.jsonl written
+# wraps both tools, saves all calls to one file in call order
+with SnapSession.snap("fixtures/session.jsonl") as s:
+    agent = make_agent(tools=[s.wrap(search), s.wrap(get_weather)])
+    agent.run("what's the weather in london and find llm docs")
+# fixtures/session.jsonl written
 ```
 
 ```bash
@@ -85,20 +84,18 @@ python main.py
 
 ```python
 # test_agent.py — tool backends don't run; the LLM still runs
-from toolsnap import replay
-
-# reads from fixtures/search.jsonl
-@replay
-def search(query: str) -> list[str]: ...
-
-# reads from fixtures/get_weather.jsonl
-@replay
-def get_weather(city: str) -> dict: ...
+from toolsnap import SnapSession, contains
 
 def test_research_agent_trajectory():
-    agent.run("what's the weather in london and find llm docs")
-    # search() and get_weather() returned their recorded responses
-    # assert on the agent's output or behaviour here
+    with SnapSession.replay("fixtures/session.jsonl") as s:
+        agent = make_agent(tools=[s.wrap(search), s.wrap(get_weather)])
+        agent.run("what's the weather in london and find llm docs")
+        # search() and get_weather() returned their recorded responses
+
+    s.assert_called("search", times=1)
+    s.assert_called_with("get_weather", city=contains("london"))
+    s.assert_call_order(["get_weather", "search"])
+    s.assert_no_errors()
 ```
 
 ```bash
@@ -114,16 +111,21 @@ pytest test_agent.py   # tool backends free, LLM still runs, trajectory determin
 Best when you have one tool and want the simplest possible setup.
 
 ```python
-# Record
+# Record — search() runs for real and saves the result
 @snap("fixtures/search.jsonl")
 def search(query: str) -> list[str]:
     return real_search_api(query)
 
-# Test
+agent = make_agent(tools=[search])
+agent.run("find llm docs")
+# fixtures/search.jsonl written
+
+# Test — search() returns the recorded result; real backend never called
 @replay("fixtures/search.jsonl")
 def search(query: str) -> list[str]: ...
 
 def test_agent_uses_search():
+    agent = make_agent(tools=[search])
     result = agent.run("find llm docs")  # search() returns recorded response
     assert result is not None
 ```
@@ -135,10 +137,15 @@ Best for agents that coordinate several tools. Wraps them all under one fixture 
 ```python
 from toolsnap import SnapSession, contains
 
+# Record
+with SnapSession.snap("fixtures/session.jsonl") as s:
+    agent = make_agent(tools=[s.wrap(search), s.wrap(summarize)])
+    agent.run("find and summarize llm docs")
+
+# Test
 def test_multi_tool_agent():
     with SnapSession.replay("fixtures/session.jsonl") as s:
-        s.wrap(search)
-        s.wrap(summarize)
+        agent = make_agent(tools=[s.wrap(search), s.wrap(summarize)])
         agent.run("find and summarize llm docs")
 
     s.assert_called("search", times=1)
@@ -158,8 +165,10 @@ pytest_plugins = ["toolsnap.pytest_plugin"]
 # test_agent.py
 @pytest.mark.toolsnap_fixture("fixtures/session.jsonl")
 def test_agent_trajectory(toolsnap_session):
-    toolsnap_session.wrap(search)
-    toolsnap_session.wrap(summarize)
+    agent = make_agent(tools=[
+        toolsnap_session.wrap(search),
+        toolsnap_session.wrap(summarize),
+    ])
     agent.run("find and summarize llm docs")
     toolsnap_session.assert_called("search", times=1)
     toolsnap_session.assert_call_order(["search", "summarize"])
@@ -188,6 +197,19 @@ All assertion methods accept predicate objects for structural matching:
 s.assert_called_with("search", query=contains("london"))
 s.assert_called_with("embed", n_tokens=lt(512))
 ```
+
+All assertion methods on `SnapSession`:
+
+| Method | What it checks |
+|---|---|
+| `assert_called(name)` | called at least once |
+| `assert_called(name, times=N)` | called exactly N times |
+| `assert_not_called(name)` | never called |
+| `assert_called_with(name, **kwargs)` | at least one call matches the kwargs / predicates |
+| `assert_called_with(name, call=N, **kwargs)` | the Nth call matches |
+| `assert_call_order([...])` | names appear in this order across the timeline |
+| `assert_no_errors()` | no tool call raised an exception |
+| `assert_raised(name, "ErrorType")` | at least one call raised this exception type |
 
 ---
 
